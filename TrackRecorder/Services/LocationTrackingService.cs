@@ -157,8 +157,9 @@ public class LocationTrackingService : ILocationTrackingService, IDisposable
             Longitude = location.Longitude,
             Altitude = location.Altitude,
             Speed = location.Speed,
-            Bearing = location.Course,
-            Timestamp = DateTime.UtcNow
+            Course = location.Course,
+            Accuracy = location.Accuracy,
+            Timestamp = location.Timestamp.UtcDateTime
         };
 
         _trackPoints.Add(locationPoint);

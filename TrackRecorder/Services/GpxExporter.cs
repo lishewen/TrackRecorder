@@ -67,13 +67,13 @@ public class GpxExporter : IGpxExporter
 
                 writer.WriteElementString("time", point.Timestamp.ToString("o"));
 
-                if (point.Speed.HasValue || point.Bearing.HasValue)
+                if (point.Speed.HasValue || point.Course.HasValue)
                 {
                     writer.WriteStartElement("extensions");
                     if (point.Speed.HasValue)
                         writer.WriteElementString("speed", (point.Speed.Value * 3.6).ToString("F1", CultureInfo.InvariantCulture)); // m/s to km/h
-                    if (point.Bearing.HasValue)
-                        writer.WriteElementString("course", point.Bearing.Value.ToString("F1", CultureInfo.InvariantCulture));
+                    if (point.Course.HasValue)
+                        writer.WriteElementString("course", point.Course.Value.ToString("F1", CultureInfo.InvariantCulture));
                     writer.WriteEndElement(); // extensions
                 }
 
@@ -191,13 +191,13 @@ public class GpxExporter : IGpxExporter
 
             sb.AppendLine($"        <time>{point.Timestamp.ToString("o")}</time>");
 
-            if (point.Speed.HasValue || point.Bearing.HasValue)
+            if (point.Speed.HasValue || point.Course.HasValue)
             {
                 sb.AppendLine("        <extensions>");
                 if (point.Speed.HasValue)
                     sb.AppendLine($"          <speed>{(point.Speed.Value * 3.6):F1}</speed>"); // m/s to km/h
-                if (point.Bearing.HasValue)
-                    sb.AppendLine($"          <course>{point.Bearing.Value:F1}</course>");
+                if (point.Course.HasValue)
+                    sb.AppendLine($"          <course>{point.Course.Value:F1}</course>");
                 sb.AppendLine("        </extensions>");
             }
 

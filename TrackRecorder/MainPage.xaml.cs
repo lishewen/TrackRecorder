@@ -30,6 +30,7 @@ public partial class MainPage : ContentPage
         {
             UpdateLocationDisplay(e.Location);
             CalculateDistance();
+            UpdateStatistics(e.Location);
             PointCountLabel.Text = $"记录点数: {_locationService.GetRecordedTrack().Count}";
         });
     }
@@ -43,6 +44,9 @@ public partial class MainPage : ContentPage
         AltitudeLabel.Text = location.Altitude.HasValue
             ? $"海拔: {location.Altitude.Value:F1} m"
             : "海拔: 0.0 m";
+        AccuracyLabel.Text = location.Accuracy.HasValue
+            ? $"精度: {location.Accuracy.Value:F1} m"
+            : "精度: 0.0 m";
     }
 
     private void CalculateDistance()
