@@ -19,6 +19,8 @@ public class GpxExporter : IGpxExporter
         if (trackPoints == null || trackPoints.Count == 0)
             return string.Empty;
 
+        trackPoints.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
+
         var sb = new StringBuilder();
         var settings = new XmlWriterSettings
         {
@@ -52,7 +54,7 @@ public class GpxExporter : IGpxExporter
             // trk
             writer.WriteStartElement("trk");
             writer.WriteElementString("name", trackName);
-            writer.WriteElementString("desc", $"Recorded on {DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}");
+            writer.WriteElementString("desc", $"Recorded on {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
 
             // trkseg
             writer.WriteStartElement("trkseg");

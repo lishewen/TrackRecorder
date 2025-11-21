@@ -130,8 +130,8 @@ public class LocationTrackingService : ILocationTrackingService, IDisposable
                     Console.WriteLine($"Location update error: {ex.Message}");
                 }
 
-                // 每2秒获取一次位置
-                await Task.Delay(2000, cancellationToken);
+                // 每1秒获取一次位置
+                await Task.Delay(1000, cancellationToken);
             }
         }
         catch (OperationCanceledException)
