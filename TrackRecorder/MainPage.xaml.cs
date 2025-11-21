@@ -42,25 +42,25 @@ public partial class MainPage : ContentPage
     private void CalculateDistance()
     {
         var track = _locationService.GetRecordedTrack();
-        _totalDistance = CalculateTotalDistance(track);
+        _totalDistance = MainPage.CalculateTotalDistance(track);
         DistanceLabel.Text = $"距离: {_totalDistance:F2} km";
     }
 
-    private double CalculateTotalDistance(List<LocationPoint> track)
+    private static double CalculateTotalDistance(List<LocationPoint> track)
     {
         if (track.Count < 2) return 0;
 
         double total = 0;
         for (int i = 1; i < track.Count; i++)
         {
-            total += CalculateDistanceBetweenPoints(
+            total += MainPage.CalculateDistanceBetweenPoints(
                 track[i - 1].Latitude, track[i - 1].Longitude,
                 track[i].Latitude, track[i].Longitude);
         }
         return total;
     }
 
-    private double CalculateDistanceBetweenPoints(double lat1, double lon1, double lat2, double lon2)
+    private static double CalculateDistanceBetweenPoints(double lat1, double lon1, double lat2, double lon2)
     {
         const double R = 6371; // 地球半径（公里）
 
@@ -117,35 +117,55 @@ public partial class MainPage : ContentPage
                 return;
             }
 
-            // 显示导出选项
+            // 提供导出选项
             var action = await DisplayActionSheetAsync("选择导出方式", "取消", null,
-                "保存到应用目录", "分享文件");
+                "保存到应用目录", "分享文件", "查看GPX内容");
 
             if (action == "取消")
                 return;
 
-            var gpxContent = _gpxExporter.ExportToGpx(track, $"Track_{DateTime.Now:yyyyMMdd_HHmmss}");
+            string gpxContent;
+
+            // 尝试使用XmlWriter方法，如果失败则使用字符串构建方法
+            try
+            {
+                gpxContent = _gpxExporter.ExportToGpx(track, $"Track_{DateTime.Now:yyyyMMdd_HHmmss}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"XmlWriter export failed: {ex.Message}");
+                Console.WriteLine("Falling back to simple string method");
+                gpxContent = _gpxExporter.ExportToGpxSimple(track, $"Track_{DateTime.Now:yyyyMMdd_HHmmss}");
+            }
 
             bool success = false;
+            string fileName = $"Track_{DateTime.Now:yyyyMMdd_HHmmss}.gpx";
+
             if (action == "保存到应用目录")
             {
-                success = await _gpxExporter.SaveGpxFileAsync(gpxContent);
+                success = await _gpxExporter.SaveGpxFileAsync(gpxContent, fileName);
                 if (success)
                 {
-                    string filePath = Path.Combine(FileSystem.AppDataDirectory, $"Track_{DateTime.Now:yyyyMMdd_HHmmss}.gpx");
+                    string filePath = Path.Combine(FileSystem.AppDataDirectory, fileName);
                     await DisplayAlertAsync("成功", $"GPX文件已保存到:\n{filePath}", "确定");
                 }
             }
             else if (action == "分享文件")
             {
-                success = await _gpxExporter.ShareGpxFileAsync(gpxContent);
+                success = await MainPage.ShareGpxFileAsync(gpxContent, fileName);
                 if (success)
                 {
                     await DisplayAlertAsync("成功", "GPX文件已准备分享", "确定");
                 }
             }
+            else if (action == "查看GPX内容")
+            {
+                // 显示前1000个字符预览
+                string preview = gpxContent.Length > 1000 ? gpxContent[..1000] + "..." : gpxContent;
+                await DisplayAlertAsync("GPX内容预览", preview, "确定");
+            }
 
-            if (!success)
+            if (!success && action != "查看GPX内容")
             {
                 await DisplayAlertAsync("失败", "GPX文件导出失败", "确定");
             }
@@ -153,6 +173,30 @@ public partial class MainPage : ContentPage
         catch (Exception ex)
         {
             await DisplayAlertAsync("错误", $"导出失败: {ex.Message}", "确定");
+        }
+    }
+
+    private static async Task<bool> ShareGpxFileAsync(string gpxContent, string fileName)
+    {
+        try
+        {
+            // 创建临时文件
+            string tempPath = Path.Combine(FileSystem.CacheDirectory, fileName);
+            await File.WriteAllTextAsync(tempPath, gpxContent);
+
+            // 共享文件
+            await Share.Default.RequestAsync(new ShareFileRequest
+            {
+                Title = "分享GPX轨迹文件",
+                File = new ShareFile(tempPath)
+            });
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GPX share failed: {ex.Message}");
+            return false;
         }
     }
 
