@@ -5,7 +5,7 @@
 	<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-	<application android:allowBackup="true" android:icon="@mipmap/appicon" android:supportsRtl="true" android:label="TrackRecorder">
+	<application android:allowBackup="true" android:icon="@mipmap/logo" android:supportsRtl="true" android:label="TrackRecorder">
 		<service android:name=".LocationTrackingService" android:foregroundServiceType="location" />
 	</application>
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

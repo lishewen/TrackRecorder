@@ -177,7 +177,7 @@ public class LocationTrackingService : ILocationTrackingService, IDisposable
         _cancellationTokenSource = null!;
     }
 
-    public List<LocationPoint> GetRecordedTrack() => _trackPoints.ToList();
+    public List<LocationPoint> GetRecordedTrack() => [.. _trackPoints];
     public void ClearTrack() => _trackPoints.Clear();
 
     public void Dispose()
