@@ -119,7 +119,7 @@ public class GpxExporter : IGpxExporter
     }
 
     // 可选：提供共享文件功能
-    public static async Task<bool> ShareGpxFileAsync(string gpxContent, string? fileName = null)
+    public async Task<bool> ShareGpxFileAsync(string gpxContent, string? fileName = null)
     {
         if (string.IsNullOrEmpty(gpxContent))
             return false;

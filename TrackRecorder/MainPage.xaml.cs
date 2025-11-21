@@ -117,13 +117,38 @@ public partial class MainPage : ContentPage
                 return;
             }
 
-            var gpxContent = _gpxExporter.ExportToGpx(track, $"Track_{DateTime.Now:yyyyMMdd_HHmmss}");
-            var success = await _gpxExporter.SaveGpxFileAsync(gpxContent);
+            // 显示导出选项
+            var action = await DisplayActionSheetAsync("选择导出方式", "取消", null,
+                "保存到应用目录", "分享文件");
 
-            if (success)
-                await DisplayAlertAsync("成功", "GPX文件导出成功", "确定");
-            else
+            if (action == "取消")
+                return;
+
+            var gpxContent = _gpxExporter.ExportToGpx(track, $"Track_{DateTime.Now:yyyyMMdd_HHmmss}");
+
+            bool success = false;
+            if (action == "保存到应用目录")
+            {
+                success = await _gpxExporter.SaveGpxFileAsync(gpxContent);
+                if (success)
+                {
+                    string filePath = Path.Combine(FileSystem.AppDataDirectory, $"Track_{DateTime.Now:yyyyMMdd_HHmmss}.gpx");
+                    await DisplayAlertAsync("成功", $"GPX文件已保存到:\n{filePath}", "确定");
+                }
+            }
+            else if (action == "分享文件")
+            {
+                success = await _gpxExporter.ShareGpxFileAsync(gpxContent);
+                if (success)
+                {
+                    await DisplayAlertAsync("成功", "GPX文件已准备分享", "确定");
+                }
+            }
+
+            if (!success)
+            {
                 await DisplayAlertAsync("失败", "GPX文件导出失败", "确定");
+            }
         }
         catch (Exception ex)
         {
