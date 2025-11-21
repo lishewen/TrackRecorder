@@ -7,9 +7,6 @@
 
     <ScrollView>
         <VerticalStackLayout Padding="20" Spacing="15">
-            <Label Text="轨迹记录应用" FontSize="24" FontAttributes="Bold" 
-                   HorizontalOptions="Center" Margin="0,0,0,10" />
-
             <!-- 状态信息卡片 -->
             <Border Stroke="#CCCCCC" StrokeThickness="1" 
                     StrokeShape="RoundRectangle 10" 
@@ -59,6 +56,23 @@
                 </Border.Shadow>
             </Border>
 
+            <!-- 新增：文件管理按钮组 -->
+            <Border Stroke="#2196F3" StrokeThickness="1" 
+                    StrokeShape="RoundRectangle 10" 
+                    Background="#E3F2FD" Padding="15">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="📁 文件管理" FontAttributes="Bold" FontSize="16" TextColor="#1976D2" />
+                    <Label Text="查看、管理已保存的GPX轨迹文件" TextColor="#666666" FontSize="14" />
+                    <Button Text="📂 打开文件管理" Clicked="OnFileManagementClicked" 
+                            BackgroundColor="#1976D2" TextColor="White" 
+                            CornerRadius="8" FontAttributes="Bold" 
+                            HorizontalOptions="Fill" />
+                </VerticalStackLayout>
+                <Border.Shadow>
+                    <Shadow Brush="#000000" Opacity="0.08" Radius="5" Offset="2,2" />
+                </Border.Shadow>
+            </Border>
+            
             <!-- 位置信息卡片 -->
             <Border Stroke="#CCCCCC" StrokeThickness="1" 
                     StrokeShape="RoundRectangle 10" 
@@ -90,7 +104,34 @@
                     <Shadow Brush="#000000" Opacity="0.1" Radius="5" Offset="2,2" />
                 </Border.Shadow>
             </Border>
-
+            
+            <!-- 快捷操作区 -->
+            <Border Stroke="#8BC34A" StrokeThickness="1" 
+                    StrokeShape="RoundRectangle 10" 
+                    Background="#F1F8E9" Padding="15">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="⚡ 快捷操作" FontAttributes="Bold" FontSize="16" TextColor="#33691E" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10" RowSpacing="10">
+                        <Button Text="🔄 刷新数据" Clicked="OnRefreshClicked" 
+                                BackgroundColor="#4CAF50" TextColor="White" 
+                                CornerRadius="8" Grid.Column="0" Grid.Row="0" />
+                        <Button Text="📱 应用设置" Clicked="OnSettingsClicked" 
+                                BackgroundColor="#FF9800" TextColor="White" 
+                                CornerRadius="8" Grid.Column="1" Grid.Row="0" />
+                        <Button Text="📊 统计图表" Clicked="OnStatisticsClicked" 
+                                BackgroundColor="#9C27B0" TextColor="White" 
+                                CornerRadius="8" Grid.Column="0" Grid.Row="1" />
+                        <Button Text="🌐 在线同步" Clicked="OnSyncClicked" 
+                                BackgroundColor="#3F51B5" TextColor="White" 
+                                CornerRadius="8" Grid.Column="1" Grid.Row="1"
+                                IsEnabled="False" Opacity="0.7" />
+                    </Grid>
+                </VerticalStackLayout>
+                <Border.Shadow>
+                    <Shadow Brush="#000000" Opacity="0.08" Radius="5" Offset="2,2" />
+                </Border.Shadow>
+            </Border>
+            
             <!-- 提示信息 -->
             <Border Stroke="#FFC107" StrokeThickness="1" 
                     StrokeShape="RoundRectangle 8" 

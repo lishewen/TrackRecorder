@@ -1,5 +1,6 @@
 ﻿using TrackRecorder.Interfaces;
 using TrackRecorder.Models;
+using TrackRecorder.Pages;
 
 namespace TrackRecorder;
 
@@ -8,6 +9,8 @@ public partial class MainPage : ContentPage
     private readonly ILocationTrackingService _locationService;
     private readonly IGpxExporter _gpxExporter;
     private double _totalDistance;
+    private DateTime _startTime;
+    private double _maxSpeed;
 
     public MainPage(ILocationTrackingService locationService, IGpxExporter gpxExporter)
     {
@@ -16,6 +19,9 @@ public partial class MainPage : ContentPage
         _gpxExporter = gpxExporter;
 
         _locationService.LocationUpdated += OnLocationUpdated;
+
+        // 初始化UI状态
+        UpdateUIForTrackingState(false);
     }
 
     private void OnLocationUpdated(object? sender, LocationUpdatedEventArgs e)
@@ -77,13 +83,41 @@ public partial class MainPage : ContentPage
         return R * c;
     }
 
+    private void UpdateStatistics(LocationPoint location)
+    {
+        if (_startTime == default)
+            _startTime = DateTime.Now;
+
+        var duration = DateTime.Now - _startTime;
+        DurationLabel.Text = $"时长: {duration:hh\\:mm\\:ss}";
+
+        if (location.Speed.HasValue)
+        {
+            double speedKmh = location.Speed.Value * 3.6;
+            if (speedKmh > _maxSpeed)
+            {
+                _maxSpeed = speedKmh;
+                MaxSpeedLabel.Text = $"最高速度: {_maxSpeed:F1} km/h";
+            }
+        }
+    }
+
     private async void OnStartClicked(object sender, EventArgs e)
     {
         try
         {
             await _locationService.StartTrackingAsync();
+            _startTime = DateTime.Now;
+            _maxSpeed = 0;
             UpdateUIForTrackingState(true);
             StatusLabel.Text = "正在记录轨迹...";
+
+            // 启动位置服务（Android需要）
+            if (DeviceInfo.Platform == DevicePlatform.Android)
+            {
+                // 这里可以启动Android后台服务
+                Console.WriteLine("Starting Android location service");
+            }
         }
         catch (Exception ex)
         {
@@ -96,6 +130,12 @@ public partial class MainPage : ContentPage
         await _locationService.StopTrackingAsync();
         UpdateUIForTrackingState(false);
         StatusLabel.Text = "已暂停记录";
+
+        if (DeviceInfo.Platform == DevicePlatform.Android)
+        {
+            // 暂停Android服务
+            Console.WriteLine("Pausing Android location service");
+        }
     }
 
     private async void OnStopClicked(object sender, EventArgs e)
@@ -104,6 +144,12 @@ public partial class MainPage : ContentPage
         UpdateUIForTrackingState(false);
         StatusLabel.Text = "记录已停止";
         ExportButton.IsEnabled = _locationService.GetRecordedTrack().Count > 0;
+
+        if (DeviceInfo.Platform == DevicePlatform.Android)
+        {
+            // 停止Android服务
+            Console.WriteLine("Stopping Android location service");
+        }
     }
 
     private async void OnExportClicked(object sender, EventArgs e)
@@ -227,6 +273,65 @@ public partial class MainPage : ContentPage
         PauseButton.IsEnabled = isTracking;
         StopButton.IsEnabled = isTracking;
         ExportButton.IsEnabled = !isTracking && _locationService.GetRecordedTrack().Count > 0;
+    }
+
+    // 新增：文件管理按钮点击事件
+    private async void OnFileManagementClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            // 导航到文件管理页面
+            await Navigation.PushAsync(new FileManagementPage());
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlertAsync("错误", $"打开文件管理失败: {ex.Message}", "确定");
+        }
+    }
+
+    // 新增：刷新数据按钮
+    private async void OnRefreshClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            // 刷新UI状态
+            var track = _locationService.GetRecordedTrack();
+            PointCountLabel.Text = $"记录点数: {track.Count}";
+            CalculateDistance();
+
+            if (_locationService.IsTracking)
+            {
+                StatusLabel.Text = "正在记录轨迹...";
+            }
+            else
+            {
+                StatusLabel.Text = track.Count > 0 ? "记录已停止" : "未开始记录";
+            }
+
+            await DisplayAlertAsync("成功", "数据已刷新", "确定");
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlertAsync("错误", $"刷新数据失败: {ex.Message}", "确定");
+        }
+    }
+
+    // 新增：设置按钮
+    private async void OnSettingsClicked(object sender, EventArgs e)
+    {
+        await DisplayAlertAsync("设置", "应用设置功能将在后续版本中实现", "确定");
+    }
+
+    // 新增：统计图表按钮
+    private async void OnStatisticsClicked(object sender, EventArgs e)
+    {
+        await DisplayAlertAsync("统计图表", "统计图表功能将在后续版本中实现", "确定");
+    }
+
+    // 新增：同步按钮
+    private async void OnSyncClicked(object sender, EventArgs e)
+    {
+        await DisplayAlertAsync("在线同步", "在线同步功能将在后续版本中实现", "确定");
     }
 
     protected override void OnDisappearing()
