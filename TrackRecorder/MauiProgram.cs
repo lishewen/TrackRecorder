@@ -1,5 +1,7 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
+using TrackRecorder.Interfaces;
+using TrackRecorder.Services;
 
 namespace TrackRecorder
 {
@@ -17,6 +19,11 @@ namespace TrackRecorder
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
+
+            // 注册服务
+            builder.Services.AddSingleton<ILocationTrackingService, LocationTrackingService>();
+            builder.Services.AddSingleton<IGpxExporter, GpxExporter>();
+            builder.Services.AddSingleton<MainPage>();
 
 #if DEBUG
             builder.Logging.AddDebug();
