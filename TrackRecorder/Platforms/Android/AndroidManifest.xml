@@ -5,9 +5,30 @@
 	<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+	<!-- 电池和唤醒权限 -->
+	<uses-permission android:name="android.permission.WAKE_LOCK" />
+	<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 	<application android:allowBackup="true" android:icon="@mipmap/logo" android:supportsRtl="true" android:label="TrackRecorder">
-		<service android:name=".LocationTrackingService" android:foregroundServiceType="location" />
+		<!-- 主活动 -->
+		<activity android:name=".MainActivity" android:exported="true" android:theme="@style/Maui.SplashTheme">
+			<intent-filter>
+				<action android:name="android.intent.action.MAIN" />
+				<category android:name="android.intent.category.LAUNCHER" />
+			</intent-filter>
+		</activity>
+		<!-- 后台位置服务 -->
+		<service android:name=".LocationTrackingService" android:exported="false" android:foregroundServiceType="location">
+			<intent-filter>
+				<action android:name="com.lishewen.trackrecorder.action.START" />
+				<action android:name="com.lishewen.trackrecorder.action.PAUSE" />
+				<action android:name="com.lishewen.trackrecorder.action.STOP" />
+			</intent-filter>
+		</service>
 	</application>
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 	<uses-permission android:name="android.permission.INTERNET" />
+	<!-- 要求设备具有位置硬件 -->
+	<uses-feature android:name="android.hardware.location" android:required="true" />
+	<uses-feature android:name="android.hardware.location.gps" android:required="false" />
+	<uses-feature android:name="android.hardware.location.network" android:required="false" />
 </manifest>

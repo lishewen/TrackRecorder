@@ -11,6 +11,6 @@ public record LocationPoint
     public double? Altitude { get; set; }
     public double? Speed { get; set; }
     public double? Course { get; set; }
-    public double? Accuracy { get; set; }
+    public float? Accuracy { get; set; }
     public DateTime Timestamp { get; set; }
 }
