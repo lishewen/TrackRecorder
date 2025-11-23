@@ -22,7 +22,56 @@
                     <Shadow Brush="#000000" Opacity="0.1" Radius="5" Offset="2,2" />
                 </Border.Shadow>
             </Border>
+            
+            <!-- 服务状态卡片 -->
+            <Border Stroke="#2196F3" StrokeThickness="1" 
+                    StrokeShape="RoundRectangle 10" 
+                    Background="#E3F2FD" Padding="15">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="🔧 服务状态" FontAttributes="Bold" FontSize="16" TextColor="#1976D2" />
+                    <Label x:Name="ServiceStatusLabel" Text="服务未运行" FontSize="16" TextColor="#D32F2F" />
+                    <ProgressBar x:Name="ServiceProgressBar" IsVisible="False" Progress="0.3" 
+                                 ProgressColor="#2196F3" HeightRequest="4" />
+                    <Label x:Name="ServiceStatusMessage" Text="等待启动服务..." TextColor="#666666" FontSize="14" />
+                </VerticalStackLayout>
+                <Border.Shadow>
+                    <Shadow Brush="#000000" Opacity="0.08" Radius="5" Offset="2,2" />
+                </Border.Shadow>
+            </Border>
 
+            <!-- 控制按钮组 -->
+            <Border Stroke="#CCCCCC" StrokeThickness="1" 
+                    StrokeShape="RoundRectangle 10" 
+                    Background="#F8F8F8" Padding="15">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="🎮 服务控制" FontAttributes="Bold" FontSize="16" TextColor="#333333" />
+
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                        <Button x:Name="StartServiceButton" Text="🚀 启动服务" Clicked="OnStartServiceClicked" 
+                                BackgroundColor="#4CAF50" TextColor="White" 
+                                CornerRadius="8" FontAttributes="Bold" Grid.Column="0" />
+                        <Button x:Name="PauseServiceButton" Text="⏸️ 暂停服务" Clicked="OnPauseServiceClicked" 
+                                BackgroundColor="#FFA726" TextColor="White" 
+                                CornerRadius="8" FontAttributes="Bold" IsEnabled="False" Grid.Column="1" />
+                        <Button x:Name="StopServiceButton" Text="⏹️ 停止服务" Clicked="OnStopServiceClicked" 
+                                BackgroundColor="#F44336" TextColor="White" 
+                                CornerRadius="8" FontAttributes="Bold" IsEnabled="False" Grid.Column="2" />
+                    </Grid>
+
+                    <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+                        <Button x:Name="CheckPermissionsButton" Text="🔐 检查权限" Clicked="OnCheckPermissionsClicked" 
+                                BackgroundColor="#9C27B0" TextColor="White" 
+                                CornerRadius="8" FontAttributes="Bold" />
+                        <Button x:Name="CheckLocationButton" Text="📍 检查位置" Clicked="OnCheckLocationClicked" 
+                                BackgroundColor="#3F51B5" TextColor="White" 
+                                CornerRadius="8" FontAttributes="Bold" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+                <Border.Shadow>
+                    <Shadow Brush="#000000" Opacity="0.1" Radius="5" Offset="2,2" />
+                </Border.Shadow>
+            </Border>
+            
             <!-- 控制按钮组 -->
             <Border Stroke="#CCCCCC" StrokeThickness="1" 
                     StrokeShape="RoundRectangle 10" 

@@ -8,6 +8,7 @@ using AndroidX.Core.Content;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using TrackRecorder.Interfaces;
 using TrackRecorder.Models;
 using MA = global::Android;
 
@@ -19,11 +20,13 @@ namespace TrackRecorder.Platforms.Android;
     "com.lishewen.trackrecorder.action.PAUSE",
     "com.lishewen.trackrecorder.action.STOP"
 ])]
-public class LocationTrackingService : Service, ILocationListener
+public class LocationTrackingService : Service, ILocationListener, ILocationTrackingService
 {
     private const int NotificationId = 10001;
     private const long MIN_TIME_BETWEEN_UPDATES = 2000; // 2 seconds
     private const float MIN_DISTANCE_CHANGE_FOR_UPDATES = 5.0f; // 5 meters
+
+    private List<LocationPoint> _trackPoints = [];
 
     private LocationManager _locationManager = null!;
     private NotificationCompat.Builder _notificationBuilder = null!;
@@ -34,9 +37,11 @@ public class LocationTrackingService : Service, ILocationListener
     private PowerManager.WakeLock _wakeLock = null!;
     private string _bestProvider = null!;
 
+    public bool IsTracking => _isTracking;
+
     // 位置更新回调
-    public event EventHandler<LocationUpdatedEventArgs> LocationUpdated;
-    public event EventHandler<ServiceStoppedEventArgs> ServiceStopped;
+    public event EventHandler<LocationUpdatedEventArgs> LocationUpdated = null!;
+    public event EventHandler<ServiceStoppedEventArgs> ServiceStopped = null!;
 
     public override void OnCreate()
     {
@@ -417,8 +422,10 @@ public class LocationTrackingService : Service, ILocationListener
             Speed = location.HasSpeed ? location.Speed : null,
             Course = location.HasBearing ? location.Bearing : null,
             Accuracy = location.Accuracy,
-            Timestamp = DateTime.UtcNow
+            Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(location.Time).UtcDateTime
         };
+
+        _trackPoints.Add(locationPoint);
 
         // 触发事件
         LocationUpdated?.Invoke(this, new LocationUpdatedEventArgs(locationPoint));
@@ -440,18 +447,13 @@ public class LocationTrackingService : Service, ILocationListener
         if (provider == _bestProvider && !_isTracking)
         {
             // 可以选择自动恢复跟踪
-            // StartTracking();
+            StartTracking();
         }
     }
 
     public void OnStatusChanged(string? provider, Availability status, Bundle? extras)
     {
         Console.WriteLine($"Provider status changed: {provider}, Status: {status}");
-    }
-
-    public class LocationUpdatedEventArgs(LocationPoint location) : EventArgs
-    {
-        public LocationPoint Location { get; } = location;
     }
 
     public class ServiceStoppedEventArgs : EventArgs { }
@@ -486,4 +488,19 @@ public class LocationTrackingService : Service, ILocationListener
 
         base.Dispose(disposing);
     }
+
+    public Task StartTrackingAsync()
+    {
+        StartTracking();
+        return Task.CompletedTask;
+    }
+
+    public Task StopTrackingAsync()
+    {
+        StopTracking();
+        return Task.CompletedTask;
+    }
+
+    public List<LocationPoint> GetRecordedTrack() => [.. _trackPoints];
+    public void ClearTrack() => _trackPoints.Clear();
 }

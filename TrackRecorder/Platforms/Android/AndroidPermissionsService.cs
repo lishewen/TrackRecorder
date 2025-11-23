@@ -4,32 +4,36 @@ using System.Text;
 
 namespace TrackRecorder.Platforms.Android;
 
-public class AndroidPermissionsService
+public class AndroidPermissionsService(MainActivity activity)
 {
-    private readonly MainActivity _activity;
+    private readonly WeakReference<MainActivity> _activityRef = new(activity);
 
-    public AndroidPermissionsService(MainActivity activity)
+    private MainActivity GetActivity()
     {
-        _activity = activity;
+        if (!_activityRef.TryGetTarget(out var activity) || activity.IsDestroyed)
+        {
+            throw new InvalidOperationException("MainActivity is not available");
+        }
+        return activity;
     }
 
     public async Task<bool> RequestBackgroundLocationPermissionAsync()
     {
-        return await _activity.RequestLocationPermissionsAsync();
+        return await GetActivity().RequestLocationPermissionsAsync();
     }
 
     public async Task<bool> CheckLocationServicesEnabledAsync()
     {
-        return await _activity.CheckLocationServicesEnabledAsync();
+        return await GetActivity().CheckLocationServicesEnabledAsync();
     }
 
     public async Task EnableLocationServicesAsync()
     {
-        await _activity.EnableLocationServicesAsync();
+        await GetActivity().EnableLocationServicesAsync();
     }
 
     public async Task OpenAppSettingsAsync()
     {
-        await _activity.OpenAppSettingsAsync();
+        await GetActivity().OpenAppSettingsAsync();
     }
 }

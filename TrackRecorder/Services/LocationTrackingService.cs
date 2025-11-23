@@ -8,7 +8,7 @@ namespace TrackRecorder.Services;
 
 public class LocationTrackingService : ILocationTrackingService, IDisposable
 {
-    private CancellationTokenSource _cancellationTokenSource=null!;
+    private CancellationTokenSource _cancellationTokenSource = null!;
     private List<LocationPoint> _trackPoints = [];
     private bool _isTracking;
     private DateTime _lastUpdate;
@@ -158,7 +158,7 @@ public class LocationTrackingService : ILocationTrackingService, IDisposable
             Altitude = location.Altitude,
             Speed = location.Speed,
             Course = location.Course,
-            Accuracy = location.Accuracy,
+            Accuracy = (float)location.Accuracy!,
             Timestamp = location.Timestamp.UtcDateTime
         };
 

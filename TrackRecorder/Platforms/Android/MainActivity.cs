@@ -3,15 +3,24 @@ using Android.Content;
 using Android.Content.PM;
 using Android.Locations;
 using Android.OS;
+using Android.Util;
+using Android.Widget;
 using AndroidX.Core.App;
+using TrackRecorder.Interfaces;
+using TrackRecorder.Models;
+using TrackRecorder.Services;
 using MA = Android;
 
 namespace TrackRecorder.Platforms.Android;
 
-[Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+[Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, Name = "com.lishewen.trackrecorder.MainActivity",
+    LaunchMode = LaunchMode.SingleTop,
+    ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode |
+                          ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
 public class MainActivity : MauiAppCompatActivity
 {
     private AndroidPermissionsService _permissionsService = null!;
+    private ILocationServiceController _serviceController = null!;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -21,6 +30,72 @@ public class MainActivity : MauiAppCompatActivity
 
         // 检查电池优化
         CheckBatteryOptimization();
+
+        Log.Debug("MainActivity", "MainActivity created successfully");
+
+        // 创建服务控制器
+        CreateServiceController();
+    }
+    private void CreateServiceController()
+    {
+        try
+        {
+            if (App.ServiceProvider != null)
+            {
+                // 从全局服务提供者获取服务控制器
+                _serviceController = App.ServiceProvider.GetRequiredService<ILocationServiceController>();
+
+                // 如果是Android控制器，设置MainActivity引用
+                if (_serviceController is AndroidLocationServiceController androidController)
+                {
+                    androidController.SetMainActivity(this);
+                }
+
+                Log.Debug("MainActivity", "Service controller created successfully from DI");
+            }
+            else
+            {
+                Log.Warn("MainActivity", "Global service provider not available, creating fallback controller");
+                _serviceController = new AndroidLocationServiceController();
+                _serviceController.SetMainActivity(this);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("MainActivity", $"Create service controller failed: {ex.Message}");
+            _serviceController = new DefaultLocationServiceController();
+        }
+    }
+
+    public ILocationServiceController GetServiceController()
+    {
+        if (_serviceController == null)
+        {
+            CreateServiceController();
+        }
+        return _serviceController!;
+    }
+
+    protected override void OnDestroy()
+    {
+        base.OnDestroy();
+
+        // 清理服务控制器
+        if (_serviceController is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+        _serviceController = null!;
+
+        Log.Debug("MainActivity", "MainActivity destroyed");
+    }
+
+    private void OnServiceStatusChanged(object? sender, ServiceStatusChangedEventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            Toast.MakeText(this, e.Message ?? e.Status.ToString(), ToastLength.Short)!.Show();
+        });
     }
 
     private async void CheckBatteryOptimization()
@@ -57,7 +132,7 @@ public class MainActivity : MauiAppCompatActivity
         try
         {
             var serviceIntent = new Intent(this, typeof(LocationTrackingService));
-            serviceIntent.SetAction("com.companyname.trackrecorder.action.START");
+            serviceIntent.SetAction("com.lishewen.trackrecorder.action.START");
 
             if (OperatingSystem.IsAndroidVersionAtLeast(26))
             {
@@ -82,7 +157,7 @@ public class MainActivity : MauiAppCompatActivity
         try
         {
             var serviceIntent = new Intent(this, typeof(LocationTrackingService));
-            serviceIntent.SetAction("com.companyname.trackrecorder.action.STOP");
+            serviceIntent.SetAction("com.lishewen.trackrecorder.action.STOP");
             StartService(serviceIntent);
 
             Console.WriteLine("Location tracking stopped");
@@ -99,7 +174,7 @@ public class MainActivity : MauiAppCompatActivity
         try
         {
             var serviceIntent = new Intent(this, typeof(LocationTrackingService));
-            serviceIntent.SetAction("com.companyname.trackrecorder.action.PAUSE");
+            serviceIntent.SetAction("com.lishewen.trackrecorder.action.PAUSE");
             StartService(serviceIntent);
 
             Console.WriteLine("Location tracking paused");
@@ -155,23 +230,8 @@ public class MainActivity : MauiAppCompatActivity
 
             if (status == PermissionStatus.Denied)
             {
-                if (ShouldShowRequestPermissionRationale(MA.Manifest.Permission.AccessBackgroundLocation))
-                {
-                    var result = await ShowAlertAsync(
-                        "后台位置权限",
-                        "为了在后台持续记录轨迹，需要授予后台位置权限。",
-                        "授予权限", "取消");
-
-                    if (result)
-                    {
-                        return await Permissions.RequestAsync<Permissions.LocationAlways>();
-                    }
-                }
-                else
-                {
-                    await OpenAppSettingsAsync();
-                    return PermissionStatus.Denied;
-                }
+                await OpenAppSettingsAsync();
+                return PermissionStatus.Denied;
             }
 
             return status;
@@ -255,11 +315,5 @@ public class MainActivity : MauiAppCompatActivity
         });
 
         return await tcs.Task;
-    }
-
-    protected override void OnDestroy()
-    {
-        base.OnDestroy();
-        StopLocationTracking();
     }
 }
