@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.LifecycleEvents;
+using Microsoft.Maui.Platform;
 using TrackRecorder.Interfaces;
 using TrackRecorder.Pages;
 #if ANDROID
@@ -31,32 +32,41 @@ namespace TrackRecorder
                     events.AddAndroid(android => android
                         .OnCreate((activity, savedInstanceState) =>
                         {
-                            // 在Android活动创建时注册服务
-                            RegisterAndroidServices(activity);
+                            // 保存 MainActivity 引用
+                            AndroidContext.SetMainActivity(activity);
+                        })
+                        .OnResume(activity =>
+                        {
+                            // 恢复时检查服务状态
+                            AndroidContext.CheckServiceStatus(activity);
                         })
                     );
 #endif
                 });
 
             // 注册服务
-
-            // 平台特定服务
-#if ANDROID
-            builder.Services.AddSingleton<ILocationTrackingService, Platforms.Android.LocationTrackingService>();
-#else
-            // iOS和其他平台的默认实现
-            builder.Services.AddSingleton<ILocationTrackingService, Services.LocationTrackingService>();
-            builder.Services.AddSingleton<ILocationServiceController, DefaultLocationServiceController>();
-#endif
-
             builder.Services.AddSingleton<IGpxExporter, GpxExporter>();
 
             builder.Services.AddSingleton<MainPage>();
             builder.Services.AddTransient<FileManagementPage>();
 
+            // 平台特定服务
+#if ANDROID
+            builder.Services.AddSingleton(sp =>
+            {
+                var activity = AndroidContext.GetMainActivity();
+                return activity is null
+                    ? throw new InvalidOperationException("MainActivity is not available for AndroidLocationServiceController")
+                    : (ILocationTrackingService)new AndroidLocationServiceController(activity);
+            });
+#else
+            // iOS和其他平台的默认实现
+            builder.Services.AddSingleton<ILocationTrackingService, Services.LocationTrackingService>();
+            builder.Services.AddSingleton<ILocationServiceController, DefaultLocationServiceController>();
+#endif
             // 注册平台特定的服务工厂
 #if ANDROID
-            builder.Services.AddSingleton<ILocationServiceControllerFactory, AndroidLocationServiceControllerFactory>();
+            // builder.Services.AddSingleton<ILocationServiceControllerFactory, AndroidLocationServiceControllerFactory>();
 #else
             builder.Services.AddSingleton<ILocationServiceControllerFactory, DefaultLocationServiceControllerFactory>();
 #endif
@@ -75,19 +85,19 @@ namespace TrackRecorder
 #if ANDROID
         private static void RegisterAndroidServices(Android.App.Activity activity)
         {
-            if (activity is MainActivity mainActivity)
-            {
-                // 获取服务提供者
-                var services = App.ServiceProvider;
+            //if (activity is MainActivity mainActivity)
+            //{
+            //    // 获取服务提供者
+            //    var services = App.ServiceProvider;
 
-                // 获取工厂
-                var factory = services.GetService<ILocationServiceControllerFactory>();
-                if (factory is AndroidLocationServiceControllerFactory androidFactory)
-                {
-                    // 设置MainActivity
-                    androidFactory.SetMainActivity(mainActivity);
-                }
-            }
+            //    // 获取工厂
+            //    var factory = services.GetService<ILocationServiceControllerFactory>();
+            //    if (factory is AndroidLocationServiceControllerFactory androidFactory)
+            //    {
+            //        // 设置MainActivity
+            //        androidFactory.SetMainActivity(mainActivity);
+            //    }
+            //}
         }
 #endif
     }

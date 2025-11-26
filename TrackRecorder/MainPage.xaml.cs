@@ -9,32 +9,18 @@ public partial class MainPage : ContentPage
 {
     private readonly ILocationTrackingService _locationService;
     private readonly IGpxExporter _gpxExporter;
-    private readonly ILocationServiceController _serviceController;
 
     private double _totalDistance;
     private DateTime _startTime;
     private double _maxSpeed;
-    private bool _isServiceRunning;
 
-    public MainPage(ILocationTrackingService locationService, IGpxExporter gpxExporter, ILocationServiceControllerFactory controllerFactory)
+    public MainPage(ILocationTrackingService locationService, IGpxExporter gpxExporter)
     {
         InitializeComponent();
         _locationService = locationService;
         _gpxExporter = gpxExporter;
 
-        try
-        {
-            // 从工厂创建控制器
-            _serviceController = controllerFactory.CreateController();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Create service controller failed: {ex.Message}");
-            _serviceController = new DefaultLocationServiceController();
-        }
-
         _locationService.LocationUpdated += OnLocationUpdated;
-        _serviceController.ServiceStatusChanged += OnServiceStatusChanged;
 
         // 初始化UI状态
         UpdateServiceUIState(false);
@@ -50,12 +36,10 @@ public partial class MainPage : ContentPage
             switch (e.Status)
             {
                 case ServiceStatus.Running:
-                    _isServiceRunning = true;
                     UpdateServiceUIState(true);
                     break;
                 case ServiceStatus.Stopped:
                 case ServiceStatus.Paused:
-                    _isServiceRunning = false;
                     UpdateServiceUIState(false);
                     break;
                 case ServiceStatus.Error:
@@ -85,20 +69,10 @@ public partial class MainPage : ContentPage
             ServiceStatus.Error => "#F44336",
             _ => "#9E9E9E"
         };
-
-        ServiceStatusLabel.Text = statusText;
-        ServiceStatusLabel.TextColor = Color.FromArgb(statusColor);
-        ServiceStatusMessage.Text = message ?? "服务状态正常";
-
-        ServiceProgressBar.IsVisible = status == ServiceStatus.Starting || status == ServiceStatus.Stopping;
     }
 
     private void UpdateServiceUIState(bool isRunning)
     {
-        StartServiceButton.IsEnabled = !isRunning;
-        PauseServiceButton.IsEnabled = isRunning;
-        StopServiceButton.IsEnabled = isRunning;
-
         // 如果服务没有运行，禁用轨迹记录按钮
         if (!isRunning)
         {
@@ -112,145 +86,10 @@ public partial class MainPage : ContentPage
 
     private void UpdateTrackingUIState(bool isTracking)
     {
-        StartButton.IsEnabled = !isTracking && _isServiceRunning;
         PauseButton.IsEnabled = isTracking;
         StopButton.IsEnabled = isTracking;
         ExportButton.IsEnabled = !isTracking && _locationService.GetRecordedTrack().Count > 0;
         ClearButton.IsEnabled = !isTracking;
-    }
-
-    // 服务控制按钮事件
-    private async void OnStartServiceClicked(object sender, EventArgs e)
-    {
-        try
-        {
-            ServiceProgressBar.IsVisible = true;
-            StartServiceButton.IsEnabled = false;
-
-            bool success = await _serviceController.StartServiceAsync();
-
-            if (success)
-            {
-                await DisplayAlertAsync("成功", "后台服务已启动", "确定");
-            }
-            else
-            {
-                await DisplayAlertAsync("失败", "服务启动失败，请检查权限和位置设置", "确定");
-            }
-        }
-        catch (Exception ex)
-        {
-            await DisplayAlertAsync("错误", $"启动服务失败: {ex.Message}", "确定");
-            UpdateServiceStatusDisplay(ServiceStatus.Error, $"启动失败: {ex.Message}");
-        }
-        finally
-        {
-            ServiceProgressBar.IsVisible = false;
-            StartServiceButton.IsEnabled = true;
-        }
-    }
-
-    private async void OnPauseServiceClicked(object sender, EventArgs e)
-    {
-        try
-        {
-            bool success = await _serviceController.PauseServiceAsync();
-            if (success)
-            {
-                await DisplayAlertAsync("成功", "服务已暂停", "确定");
-            }
-        }
-        catch (Exception ex)
-        {
-            await DisplayAlertAsync("错误", $"暂停服务失败: {ex.Message}", "确定");
-        }
-    }
-
-    private async void OnStopServiceClicked(object sender, EventArgs e)
-    {
-        try
-        {
-            bool confirm = await DisplayAlertAsync("确认", "确定要停止后台服务吗？这将停止所有轨迹记录", "是", "否");
-            if (!confirm) return;
-
-            ServiceProgressBar.IsVisible = true;
-            StopServiceButton.IsEnabled = false;
-
-            bool success = await _serviceController.StopServiceAsync();
-            if (success)
-            {
-                await DisplayAlertAsync("成功", "服务已停止", "确定");
-                _locationService.ClearTrack();
-                UpdateTrackingUIState(false);
-            }
-        }
-        catch (Exception ex)
-        {
-            await DisplayAlertAsync("错误", $"停止服务失败: {ex.Message}", "确定");
-        }
-        finally
-        {
-            ServiceProgressBar.IsVisible = false;
-            StopServiceButton.IsEnabled = true;
-        }
-    }
-
-    private async void OnCheckPermissionsClicked(object sender, EventArgs e)
-    {
-        try
-        {
-            ServiceProgressBar.IsVisible = true;
-            CheckPermissionsButton.IsEnabled = false;
-
-            bool hasPermissions = await _serviceController.CheckPermissionsAsync();
-
-            if (hasPermissions)
-            {
-                await DisplayAlertAsync("权限检查", "✅ 所有位置权限已授予", "确定");
-            }
-            else
-            {
-                await DisplayAlertAsync("权限检查", "❌ 缺少必要权限，请手动授予权限", "确定");
-            }
-        }
-        catch (Exception ex)
-        {
-            await DisplayAlertAsync("错误", $"权限检查失败: {ex.Message}", "确定");
-        }
-        finally
-        {
-            ServiceProgressBar.IsVisible = false;
-            CheckPermissionsButton.IsEnabled = true;
-        }
-    }
-
-    private async void OnCheckLocationClicked(object sender, EventArgs e)
-    {
-        try
-        {
-            ServiceProgressBar.IsVisible = true;
-            CheckLocationButton.IsEnabled = false;
-
-            bool locationEnabled = await _serviceController.CheckLocationServicesAsync();
-
-            if (locationEnabled)
-            {
-                await DisplayAlertAsync("位置服务", "✅ 位置服务已启用", "确定");
-            }
-            else
-            {
-                await DisplayAlertAsync("位置服务", "❌ 位置服务未启用，请启用GPS", "确定");
-            }
-        }
-        catch (Exception ex)
-        {
-            await DisplayAlertAsync("错误", $"位置服务检查失败: {ex.Message}", "确定");
-        }
-        finally
-        {
-            ServiceProgressBar.IsVisible = false;
-            CheckLocationButton.IsEnabled = true;
-        }
     }
 
     private void OnLocationUpdated(object? sender, LocationUpdatedEventArgs e)
@@ -339,12 +178,6 @@ public partial class MainPage : ContentPage
     {
         try
         {
-            if (!_isServiceRunning)
-            {
-                await DisplayAlertAsync("提示", "请先启动后台服务", "确定");
-                return;
-            }
-
             await _locationService.StartTrackingAsync();
             _startTime = DateTime.Now;
             _maxSpeed = 0;

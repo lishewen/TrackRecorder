@@ -3,58 +3,49 @@ using Android.Content;
 using Android.Content.PM;
 using Android.Locations;
 using Android.OS;
+using Android.Util;
 using AndroidX.Core.App;
-using AndroidX.Core.Content;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using TrackRecorder.Interfaces;
+using System.Threading;
 using TrackRecorder.Models;
 using MA = global::Android;
 
 namespace TrackRecorder.Platforms.Android;
 
-[Service(ForegroundServiceType = ForegroundService.TypeLocation, Name = "com.lishewen.trackrecorder.LocationTrackingService")]
+[Service(ForegroundServiceType = ForegroundService.TypeLocation,
+         Name = "com.lishewen.trackrecorder.LocationTrackingService",
+         Exported = false)]
 [IntentFilter([
     "com.lishewen.trackrecorder.action.START",
     "com.lishewen.trackrecorder.action.PAUSE",
     "com.lishewen.trackrecorder.action.STOP"
 ])]
-public class LocationTrackingService : Service, ILocationListener, ILocationTrackingService
+public class LocationTrackingService : Service, ILocationListener
 {
     private const int NotificationId = 10001;
-    private const long MIN_TIME_BETWEEN_UPDATES = 2000; // 2 seconds
-    private const float MIN_DISTANCE_CHANGE_FOR_UPDATES = 5.0f; // 5 meters
+    private const long MIN_TIME_BETWEEN_UPDATES = 2000;
+    private const float MIN_DISTANCE_CHANGE_FOR_UPDATES = 5.0f;
 
-    private List<LocationPoint> _trackPoints = [];
-
-    private LocationManager _locationManager = null!;
     private NotificationCompat.Builder _notificationBuilder = null!;
     private CancellationTokenSource _cancellationTokenSource = null!;
+
+    private LocationManager _locationManager = null!;
+    private string? _bestProvider;
     private bool _isTracking;
     private DateTime _lastLocationTime;
-    private Handler _handler = null!;
     private PowerManager.WakeLock _wakeLock = null!;
-    private string _bestProvider = null!;
 
-    public bool IsTracking => _isTracking;
-
-    // 位置更新回调
-    public event EventHandler<LocationUpdatedEventArgs> LocationUpdated = null!;
+    // 仅用于通知跨平台层有位置更新
+    public static event EventHandler<LocationUpdatedEventArgs> LocationUpdated = null!;
     public event EventHandler<ServiceStoppedEventArgs> ServiceStopped = null!;
 
     public override void OnCreate()
     {
         base.OnCreate();
-
-        _cancellationTokenSource = new CancellationTokenSource();
-        _handler = new Handler(Looper.MainLooper!);
         _locationManager = (LocationManager)GetSystemService(LocationService)!;
-
-        GetWakeLock();
         DetermineBestProvider();
+        GetWakeLock();
 
-        Console.WriteLine("LocationTrackingService created (Native Android LocationManager)");
+        Log.Debug("BackgroundService", "LocationTrackingService created");
     }
 
     private void DetermineBestProvider()
@@ -70,32 +61,21 @@ public class LocationTrackingService : Service, ILocationListener, ILocationTrac
                 BearingRequired = false,
                 CostAllowed = false
             };
-
             _bestProvider = _locationManager.GetBestProvider(criteria, true);
 
             if (string.IsNullOrEmpty(_bestProvider))
             {
-                // 回退到 GPS 提供者
-                if (_locationManager.IsProviderEnabled(LocationManager.GpsProvider))
-                {
-                    _bestProvider = LocationManager.GpsProvider;
-                }
-                else if (_locationManager.IsProviderEnabled(LocationManager.NetworkProvider))
-                {
-                    _bestProvider = LocationManager.NetworkProvider;
-                }
-                else
-                {
-                    _bestProvider = LocationManager.PassiveProvider;
-                }
+                _bestProvider = _locationManager.IsProviderEnabled(LocationManager.GpsProvider)
+                    ? LocationManager.GpsProvider
+                    : LocationManager.NetworkProvider;
             }
 
-            Console.WriteLine($"Best location provider: {_bestProvider}");
+            Log.Debug("BackgroundService", $"Best provider: {_bestProvider}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Provider determination failed: {ex.Message}");
-            _bestProvider = LocationManager.GpsProvider; // 默认使用 GPS
+            Log.Error("BackgroundService", $"Provider determination failed: {ex.Message}");
+            _bestProvider = LocationManager.GpsProvider;
         }
     }
 
@@ -105,24 +85,18 @@ public class LocationTrackingService : Service, ILocationListener, ILocationTrac
         {
             var powerManager = (PowerManager)GetSystemService(PowerService)!;
             _wakeLock = powerManager.NewWakeLock(WakeLockFlags.Partial, "TrackRecorder::LocationWakeLock")!;
-            _wakeLock.Acquire(10 * 60 * 1000L /*10 minutes*/);
-            Console.WriteLine("WakeLock acquired");
+            _wakeLock.Acquire(10 * 60 * 1000L);
+            Log.Debug("BackgroundService", "WakeLock acquired");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"WakeLock error: {ex.Message}");
+            Log.Error("BackgroundService", $"WakeLock error: {ex.Message}");
         }
     }
 
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
     {
-        if (intent == null)
-        {
-            Console.WriteLine("Null intent received");
-            return StartCommandResult.Sticky;
-        }
-
-        Console.WriteLine($"Service started with action: {intent.Action}");
+        if (intent == null) return StartCommandResult.Sticky;
 
         if (intent.Action == "com.lishewen.trackrecorder.action.START")
         {
@@ -152,64 +126,7 @@ public class LocationTrackingService : Service, ILocationListener, ILocationTrac
         _lastLocationTime = DateTime.Now;
 
         RequestLocationUpdates();
-    }
-
-    private void RequestLocationUpdates()
-    {
-        if (!_isTracking) return;
-
-        try
-        {
-            // 检查权限
-            if (ContextCompat.CheckSelfPermission(this, MA.Manifest.Permission.AccessFineLocation) != Permission.Granted &&
-                ContextCompat.CheckSelfPermission(this, MA.Manifest.Permission.AccessCoarseLocation) != Permission.Granted)
-            {
-                ShowErrorNotification("权限不足", "请授予权限以继续跟踪");
-                return;
-            }
-
-            // 检查位置服务是否启用
-            if (!_locationManager.IsProviderEnabled(_bestProvider))
-            {
-                ShowErrorNotification("位置服务未启用", $"请启用{_bestProvider}提供者");
-                return;
-            }
-
-            Console.WriteLine($"Requesting location updates from provider: {_bestProvider}");
-
-            // 移除现有的位置更新
-            _locationManager.RemoveUpdates(this);
-
-            // 请求位置更新
-            if (OperatingSystem.IsAndroidVersionAtLeast(23))
-            {
-                // Android 6.0+ 使用新的API
-                _locationManager.RequestLocationUpdates(
-                    _bestProvider,
-                    MIN_TIME_BETWEEN_UPDATES,
-                    MIN_DISTANCE_CHANGE_FOR_UPDATES,
-                    this,
-                    Looper.MainLooper
-                );
-            }
-            else
-            {
-                // 旧版本 Android
-                _locationManager.RequestLocationUpdates(
-                    _bestProvider,
-                    MIN_TIME_BETWEEN_UPDATES,
-                    MIN_DISTANCE_CHANGE_FOR_UPDATES,
-                    this
-                );
-            }
-
-            Console.WriteLine("Location updates requested successfully");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Location updates request failed: {ex.Message}");
-            ShowErrorNotification("位置跟踪错误", $"启动失败: {ex.Message}");
-        }
+        Log.Debug("BackgroundService", "Tracking started");
     }
 
     private void PauseTracking()
@@ -403,17 +320,50 @@ public class LocationTrackingService : Service, ILocationListener, ILocationTrac
         }
     }
 
-    // ILocationListener implementation
+    private void RequestLocationUpdates()
+    {
+        try
+        {
+            _locationManager.RemoveUpdates(this);
+
+            if (OperatingSystem.IsAndroidVersionAtLeast(23))
+            {
+                _locationManager.RequestLocationUpdates(
+                    _bestProvider!,
+                    MIN_TIME_BETWEEN_UPDATES,
+                    MIN_DISTANCE_CHANGE_FOR_UPDATES,
+                    this,
+                    Looper.MainLooper
+                );
+            }
+            else
+            {
+                _locationManager.RequestLocationUpdates(
+                    _bestProvider!,
+                    MIN_TIME_BETWEEN_UPDATES,
+                    MIN_DISTANCE_CHANGE_FOR_UPDATES,
+                    this
+                );
+            }
+
+            Log.Debug("BackgroundService", $"Location updates requested from {_bestProvider}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("BackgroundService", $"Location updates failed: {ex.Message}");
+        }
+    }
+
     public void OnLocationChanged(MA.Locations.Location location)
     {
         if (location == null) return;
 
         _lastLocationTime = DateTime.Now;
 
-        Console.WriteLine($"Location update: Lat={location.Latitude}, Lng={location.Longitude}, " +
-                         $"Accuracy={location.Accuracy}, Speed={location.Speed}, Provider={location.Provider}");
+        Log.Debug("BackgroundService", $"Raw location: Lat={location.Latitude:F6}, Lng={location.Longitude:F6}, " +
+                                      $"Accuracy={location.Accuracy:F1}m, Speed={location.Speed:F1}m/s");
 
-        // 创建位置点
+        // 将 Android Location 转换为跨平台 LocationPoint
         var locationPoint = new LocationPoint
         {
             Latitude = location.Latitude,
@@ -425,9 +375,7 @@ public class LocationTrackingService : Service, ILocationListener, ILocationTrac
             Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(location.Time).UtcDateTime
         };
 
-        _trackPoints.Add(locationPoint);
-
-        // 触发事件
+        // 仅通知跨平台层，不处理业务逻辑
         LocationUpdated?.Invoke(this, new LocationUpdatedEventArgs(locationPoint));
     }
 
@@ -468,39 +416,9 @@ public class LocationTrackingService : Service, ILocationListener, ILocationTrac
         if (disposing)
         {
             StopTracking();
-
-            if (_locationManager != null)
-            {
-                _locationManager.RemoveUpdates(this);
-                _locationManager = null!;
-            }
-
-            if (_wakeLock != null && _wakeLock.IsHeld)
-            {
-                _wakeLock.Release();
-                _wakeLock.Dispose();
-                _wakeLock = null!;
-            }
-
-            _cancellationTokenSource?.Dispose();
-            _handler?.Dispose();
+            _locationManager?.RemoveUpdates(this);
+            if (_wakeLock != null && _wakeLock.IsHeld) _wakeLock.Release();
         }
-
         base.Dispose(disposing);
     }
-
-    public Task StartTrackingAsync()
-    {
-        StartTracking();
-        return Task.CompletedTask;
-    }
-
-    public Task StopTrackingAsync()
-    {
-        StopTracking();
-        return Task.CompletedTask;
-    }
-
-    public List<LocationPoint> GetRecordedTrack() => [.. _trackPoints];
-    public void ClearTrack() => _trackPoints.Clear();
 }

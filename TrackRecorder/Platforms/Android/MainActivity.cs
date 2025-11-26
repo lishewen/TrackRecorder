@@ -20,11 +20,11 @@ namespace TrackRecorder.Platforms.Android;
 public class MainActivity : MauiAppCompatActivity
 {
     private AndroidPermissionsService _permissionsService = null!;
-    private ILocationServiceController _serviceController = null!;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
+        AndroidContext.SetMainActivity(this);
 
         _permissionsService = new AndroidPermissionsService(this);
 
@@ -32,70 +32,28 @@ public class MainActivity : MauiAppCompatActivity
         CheckBatteryOptimization();
 
         Log.Debug("MainActivity", "MainActivity created successfully");
-
-        // 创建服务控制器
-        CreateServiceController();
     }
-    private void CreateServiceController()
-    {
-        try
-        {
-            if (App.ServiceProvider != null)
-            {
-                // 从全局服务提供者获取服务控制器
-                _serviceController = App.ServiceProvider.GetRequiredService<ILocationServiceController>();
-
-                // 如果是Android控制器，设置MainActivity引用
-                if (_serviceController is AndroidLocationServiceController androidController)
-                {
-                    androidController.SetMainActivity(this);
-                }
-
-                Log.Debug("MainActivity", "Service controller created successfully from DI");
-            }
-            else
-            {
-                Log.Warn("MainActivity", "Global service provider not available, creating fallback controller");
-                _serviceController = new AndroidLocationServiceController();
-                _serviceController.SetMainActivity(this);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error("MainActivity", $"Create service controller failed: {ex.Message}");
-            _serviceController = new DefaultLocationServiceController();
-        }
-    }
-
-    public ILocationServiceController GetServiceController()
-    {
-        if (_serviceController == null)
-        {
-            CreateServiceController();
-        }
-        return _serviceController!;
-    }
-
     protected override void OnDestroy()
     {
         base.OnDestroy();
-
-        // 清理服务控制器
-        if (_serviceController is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
-        _serviceController = null!;
-
+        AndroidContext.SetMainActivity(null!);
         Log.Debug("MainActivity", "MainActivity destroyed");
     }
 
-    private void OnServiceStatusChanged(object? sender, ServiceStatusChangedEventArgs e)
+    public void OnServiceStatusChanged(ServiceStatus status, string message)
     {
-        MainThread.BeginInvokeOnMainThread(() =>
+        try
         {
-            Toast.MakeText(this, e.Message ?? e.Status.ToString(), ToastLength.Short)!.Show();
-        });
+            RunOnUiThread(() =>
+            {
+                Toast.MakeText(this, message, ToastLength.Short)!.Show();
+                Log.Debug("MainActivity", $"Service status: {status} - {message}");
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Error("MainActivity", $"OnServiceStatusChanged error: {ex.Message}");
+        }
     }
 
     private async void CheckBatteryOptimization()
